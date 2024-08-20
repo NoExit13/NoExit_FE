@@ -30,9 +30,9 @@
     </v-container>
 </template>
 
-
 <script>
 import axios from 'axios'
+
 export default {
     props: {
         games: {
@@ -42,15 +42,39 @@ export default {
     },
     data() {
         return {
+            myInfo: [],
             wishlist: [],
+            myWishList: [],
+            pageSize: 10,
+            currentPage: 0,
+            isLastPage: false,
+            token: localStorage.getItem('token') || null,  // 토큰을 저장
+            isLoggedIn: false,  // 로그인 상태
         }
     },
     async created() {
-        const response = await axios.get(`${process.env.VUE_APP_API_BASIC_URL}/wishlist`);
-        this.wishlist = response.data.result.content;
-        console.log(this.wishlist)
+        if (this.token) {
+            this.isLoggedIn = true;
+            this.fetchMyInfo();
+            this.fetchMyWishList();
+        } else {
+            console.log("User is not logged in. Skipping wishlist and user info load.");
+        }
     },
     methods: {
+        async fetchMyInfo() {
+            if (!this.token) return;
+
+            try {
+                const response = await axios.get(
+                    `${process.env.VUE_APP_API_BASIC_URL}/member/myInfo`,
+                    { headers: { Authorization: `Bearer ${this.token}` } }
+                );
+                this.myInfo = response.data.result;
+            } catch (e) {
+                console.error("Failed to fetch user info:", e);
+            }
+        },
         moveToDetail(id) {
             this.$router.push("/game/detail/" + id)
         },
@@ -65,22 +89,76 @@ export default {
             return levels[difficulty?.toLowerCase()] || 1;
         },
         async toggleWishlist(id) {
+            if (!this.token) {
+                alert("로그인이 필요합니다.");
+                return;
+            }
+
             try {
+                const url = `${process.env.VUE_APP_API_BASIC_URL}/wishlist/${this.isInWishlist(id) ? 'delete' : 'add'}/${id}`;
+                const method = this.isInWishlist(id) ? 'patch' : 'post';
+
+                await axios({
+                    method: method,
+                    url: url,
+                    headers: { Authorization: `Bearer ${this.token}` },
+                });
+
                 if (this.isInWishlist(id)) {
-                    await axios.patch(`${process.env.VUE_APP_API_BASIC_URL}/wishlist/delete/${id}`);
-                    this.wishlist = this.wishlist.filter(item => item !== id);
+                    this.myWishList = this.myWishList.filter(item => item.gameId !== id);
                 } else {
-                    await axios.post(`${process.env.VUE_APP_API_BASIC_URL}/wishlist/add`);
-                    this.wishlist.push(id);
+                    this.myWishList.push({ gameId: id, memberId: this.myInfo.id });
+
                 }
-                console.log(this.wishlist)
             } catch (error) {
-                console.error("위시리스트 추가/제거 하는 도중에 오류가 발생했습니다..");
+                console.error("위시리스트 추가/제거 하는 도중에 오류가 발생했습니다.", error);
             }
         },
         isInWishlist(id) {
-            return this.wishlist.includes(id);
-        }
+            return this.myWishList.some(wish => wish.gameId === id);
+        },
+        async fetchMyWishList() {
+            if (!this.token) return;
+
+            this.isLoading = true;
+
+            const allWishList = [];
+
+            while (!this.isLastPage) {
+                let params = {
+                    size: this.pageSize,
+                    page: this.currentPage,
+                };
+
+                try {
+                    const response = await axios.get(
+                        `${process.env.VUE_APP_API_BASIC_URL}/wishlist`,
+                        { params, headers: { Authorization: `Bearer ${this.token}` } }
+                    );
+
+                    const additionalData = response.data.result.content;
+                    if (additionalData.length === 0) {
+                        this.isLastPage = true;
+                    } else {
+                        allWishList.push(...additionalData);
+                        this.currentPage++;
+                    }
+                } catch (error) {
+                    console.error("Failed to fetch wishlist:", error);
+                    this.isLastPage = true;
+                }
+            }
+
+            this.wishList = allWishList;
+
+            for (let i = 0; i < this.wishList.length; i++) {
+                if (this.wishList[i].memberId === this.myInfo.id) {
+                    this.myWishList.push(this.wishList[i]);
+                }
+            }
+
+            this.isLoading = false;
+        },
     },
 };
 </script>
@@ -89,7 +167,6 @@ export default {
 .hover-card {
     transition: transform 0.2s ease;
     border-radius: 15px;
-
 }
 
 .hover-card:hover {
@@ -104,7 +181,6 @@ export default {
     padding-top: 2px;
     padding-bottom: 2px;
 }
-
 
 .difficulty-container {
     font-size: 13px;
@@ -126,7 +202,6 @@ export default {
     color: #919191;
     padding-bottom: 0px;
     font-size: 12px;
-
 }
 
 .difficulty-level {

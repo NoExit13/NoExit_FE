@@ -1,7 +1,7 @@
 <template>
     <v-container>
         <v-row justify="center">
-            <v-col cols="12" sm="4" md="6">
+            <v-col cols="12">
                 <v-card class="loginpage" style=" background-color: #1b1b1b; color:#ffffff;">
                     <v-card-title>로그인</v-card-title>
                     <v-card-text>
@@ -19,7 +19,9 @@
                             </v-row>
                             <v-row class="mt-4">
                                 <v-col cols="4">
-                                    <v-btn :to="{ path: '/member/create' }" block>회원가입</v-btn>
+                                    <v-btn :to="{ path: '/member/create' }" block>
+                                        회원가입
+                                    </v-btn>
                                 </v-col>
                                 <v-divider vertical></v-divider>
                                 <v-col cols="4">
@@ -60,12 +62,19 @@ export default {
     methods: {
         async doLogin() {
             try {
-                const roleValue = this.role === '일반 사용자' ? 'USER' : 'OWNER';
+                // const roleValue = this.role === '일반 사용자' ? 'USER' : 'OWNER';
+                console.log(this.role)
+                let roleValue = 'USER';
+                if (this.role == '점주 사용자') {
+                    roleValue = 'OWNER'
+                }
                 const loginData = {
                     email: this.email,
                     password: this.password,
                     role: roleValue
                 }
+                console.log(loginData)
+
                 const response = await axios.post(`${process.env.VUE_APP_API_BASIC_URL}/doLogin`, loginData);
                 const token = response.data.result.token;
                 const refreshToken = response.data.result.refreshToken;
@@ -73,7 +82,13 @@ export default {
                 localStorage.setItem('token', token)
                 localStorage.setItem('refreshToken', refreshToken)
                 localStorage.setItem('role', role)
-                window.location.href = "/"
+
+                if (this.role == '일반 사용자') {
+                    window.location.href = "/"
+                } else {
+                    this.$router.push("/resview")
+                    // window.location.href = "/"
+                }
                 // this.$router.push("/")
             } catch (e) {
                 const error_message = e.response.data.error_message
@@ -119,9 +134,10 @@ export default {
     height: 40px;
 }
 
+
 input.v-field__input {
     font-size: 10px;
-    background-color: rgba(27, 27, 27, 100)
+    background-color: rgba(27, 27, 27, 100);
 }
 
 .v-btn {

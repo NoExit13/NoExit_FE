@@ -10,7 +10,7 @@
                                 <v-col cols="auto" class="d-flex align-center img-area">
                                     <v-avatar size="80" class="mr-3">
                                         <img :src="memberInfoList.find(item => item.key === 'profileImage')?.value"
-                                            alt="프로필 이미지" @click="selectImage" class="profile-image" />
+                                            alt="프로필 이미지" @click="selectImage" class="profile-image" display="none" />
                                     </v-avatar>
                                     <input type="file" @change="onImageChange" accept="image/*"
                                         style="display: none;" />
@@ -23,8 +23,8 @@
                             </v-row>
 
                             <v-form v-for=" element in memberInfoList" :key="element.id" class="form-area">
-                                <v-text-field :label="element.key" v-model="element.value"
-                                    class="custom-text-field"></v-text-field>
+                                <v-text-field v-if="element.key !== 'profileImage'" :label="element.key"
+                                    v-model="element.value" class="custom-text-field"></v-text-field>
                             </v-form>
                         </v-card-text>
                     </v-col>
@@ -51,15 +51,27 @@ export default {
         }
     },
     async created() {
-        const response = await axios.get(`${process.env.VUE_APP_API_BASIC_URL}/member/myInfo`);
-        this.memberInfo = response.data.result;
-        this.memberInfoList = [
-            { key: "profileImage", value: this.memberInfo.profile_image },
-            { key: "username", value: this.memberInfo.username },
-            { key: "nickname", value: this.memberInfo.nickname },
-            { key: "phone_number", value: this.memberInfo.phone_number },
-            { key: "age", value: this.memberInfo.age },
-        ];
+        const role = localStorage.getItem('role');
+        if (role == 'USER') {
+            const response = await axios.get(`${process.env.VUE_APP_API_BASIC_URL}/member/myInfo`);
+            this.memberInfo = response.data.result;
+            this.memberInfoList = [
+                { key: "profileImage", value: this.memberInfo.profile_image },
+                { key: "username", value: this.memberInfo.username },
+                { key: "nickname", value: this.memberInfo.nickname },
+                { key: "phone_number", value: this.memberInfo.phone_number },
+                { key: "age", value: this.memberInfo.age },
+            ];
+        } else if (role == 'OWNER') {
+            const response = await axios.get(`${process.env.VUE_APP_API_BASIC_URL}/owner/myInfo`);
+            this.memberInfo = response.data.result;
+            this.memberInfoList = [
+                { key: "username", value: this.memberInfo.username },
+                { key: "username", value: this.memberInfo.username },
+                { key: "email", value: this.memberInfo.email },
+            ];
+        }
+
     },
     methods: {
         async updateMember() {
